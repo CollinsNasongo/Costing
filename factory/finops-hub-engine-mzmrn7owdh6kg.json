@@ -1,0 +1,14 @@
+{
+	"name": "finops-hub-engine-mzmrn7owdh6kg",
+	"properties": {
+		"globalConfigurations": {
+			"PipelineBillingEnabled": "true"
+		}
+	},
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "413f4672-6410-43f3-85cf-a29dac320ff2",
+		"tenantId": "8552d231-7d3a-4eef-bf9d-68fc9e403a7f"
+	}
+}

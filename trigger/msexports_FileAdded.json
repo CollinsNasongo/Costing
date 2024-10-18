@@ -1,0 +1,29 @@
+{
+	"name": "msexports_FileAdded",
+	"properties": {
+		"annotations": [],
+		"runtimeState": "Started",
+		"pipelines": [
+			{
+				"pipelineReference": {
+					"referenceName": "msexports_ExecuteETL",
+					"type": "PipelineReference"
+				},
+				"parameters": {
+					"folderPath": "@triggerBody().folderPath",
+					"fileName": "@triggerBody().fileName"
+				}
+			}
+		],
+		"type": "BlobEventsTrigger",
+		"typeProperties": {
+			"blobPathBeginsWith": "/msexports/blobs/",
+			"blobPathEndsWith": "manifest.json",
+			"ignoreEmptyBlobs": true,
+			"scope": "/subscriptions/0c37ee91-9f72-4ca8-b50d-e2a5e86be377/resourceGroups/nasongo-finops-dev/providers/Microsoft.Storage/storageAccounts/finopshubmzmrn7owdh6kg",
+			"events": [
+				"Microsoft.Storage.BlobCreated"
+			]
+		}
+	}
+}

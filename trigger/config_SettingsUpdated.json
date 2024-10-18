@@ -1,0 +1,25 @@
+{
+	"name": "config_SettingsUpdated",
+	"properties": {
+		"annotations": [],
+		"runtimeState": "Started",
+		"pipelines": [
+			{
+				"pipelineReference": {
+					"referenceName": "config_ConfigureExports",
+					"type": "PipelineReference"
+				}
+			}
+		],
+		"type": "BlobEventsTrigger",
+		"typeProperties": {
+			"blobPathBeginsWith": "/config/blobs/",
+			"blobPathEndsWith": "settings.json",
+			"ignoreEmptyBlobs": true,
+			"scope": "/subscriptions/0c37ee91-9f72-4ca8-b50d-e2a5e86be377/resourceGroups/nasongo-finops-dev/providers/Microsoft.Storage/storageAccounts/finopshubmzmrn7owdh6kg",
+			"events": [
+				"Microsoft.Storage.BlobCreated"
+			]
+		}
+	}
+}

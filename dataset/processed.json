@@ -1,0 +1,20 @@
+{
+	"name": "processed",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "finopshubmzmrn7owdh6kg",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileSystem": "processed"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

@@ -1,0 +1,166 @@
+{
+	"name": "config_RunBackfill",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get Config",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.00:05:00",
+					"retry": 2,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "JsonSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "JsonReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "config",
+						"type": "DatasetReference",
+						"parameters": {
+							"fileName": {
+								"value": "@variables('fileName')",
+								"type": "Expression"
+							},
+							"folderPath": {
+								"value": "@variables('folderPath')",
+								"type": "Expression"
+							}
+						}
+					}
+				}
+			},
+			{
+				"name": "ForEach Export Scope",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get Config",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Config').output.firstRow.scopes",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Set backfill export name",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "exportName",
+								"value": {
+									"value": "@toLower(concat(variables('finOpsHub'), '-monthly-costdetails'))",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Trigger backfill export",
+							"type": "WebActivity",
+							"dependsOn": [
+								{
+									"activity": "Set backfill export name",
+									"dependencyConditions": [
+										"Completed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.00:05:00",
+								"retry": 1,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "POST",
+								"headers": {
+									"x-ms-command-name": "FinOpsToolkit.Hubs.config_RunBackfill@0.5",
+									"Content-Type": "application/json",
+									"ClientType": "FinOpsToolkit.Hubs@0.5"
+								},
+								"url": {
+									"value": "@{variables('resourceManagementUri')}@{item().scope}/providers/Microsoft.CostManagement/exports/@{variables('exportName')}/run?api-version=2023-07-01-preview",
+									"type": "Expression"
+								},
+								"body": {
+									"value": "{\"timePeriod\" : { \"from\" : \"@{pipeline().parameters.StartDate}\", \"to\" : \"@{pipeline().parameters.EndDate}\" }}",
+									"type": "Expression"
+								},
+								"authentication": {
+									"type": "MSI",
+									"resource": {
+										"value": "@variables('resourceManagementUri')",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"concurrency": 1,
+		"parameters": {
+			"StartDate": {
+				"type": "string"
+			},
+			"EndDate": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"exportName": {
+				"type": "String"
+			},
+			"storageAccountId": {
+				"type": "String",
+				"defaultValue": "/subscriptions/0c37ee91-9f72-4ca8-b50d-e2a5e86be377/resourceGroups/nasongo-finops-dev/providers/Microsoft.Storage/storageAccounts/finopshubmzmrn7owdh6kg"
+			},
+			"finOpsHub": {
+				"type": "String",
+				"defaultValue": "finops-hub"
+			},
+			"resourceManagementUri": {
+				"type": "String",
+				"defaultValue": "https://management.azure.com/"
+			},
+			"fileName": {
+				"type": "String",
+				"defaultValue": "settings.json"
+			},
+			"folderPath": {
+				"type": "String",
+				"defaultValue": "config"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2024-09-24T12:06:40Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

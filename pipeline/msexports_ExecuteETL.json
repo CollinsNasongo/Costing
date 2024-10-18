@@ -1,0 +1,395 @@
+{
+	"name": "msexports_ExecuteETL",
+	"properties": {
+		"activities": [
+			{
+				"name": "Wait",
+				"type": "Wait",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"waitTimeInSeconds": 60
+				}
+			},
+			{
+				"name": "Read Manifest",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Wait",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "JsonSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "JsonReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "manifest",
+						"type": "DatasetReference",
+						"parameters": {
+							"fileName": {
+								"value": "@pipeline().parameters.fileName",
+								"type": "Expression"
+							},
+							"folderPath": {
+								"value": "@pipeline().parameters.folderPath",
+								"type": "Expression"
+							}
+						}
+					}
+				}
+			},
+			{
+				"name": "Set Dataset Type",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Read Manifest",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "datasetType",
+					"value": {
+						"value": "@activity('Read Manifest').output.firstRow.exportConfig.type",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set Dataset Version",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Read Manifest",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "datasetVersion",
+					"value": {
+						"value": "@activity('Read Manifest').output.firstRow.exportConfig.dataVersion",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set Schema File",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set Dataset Type",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set Dataset Version",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "schemaFile",
+					"value": {
+						"value": "@toLower(concat(variables('datasetType'), '_', variables('datasetVersion'), '.json'))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set Scope",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Read Manifest",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "scope",
+					"value": {
+						"value": "@split(toLower(activity('Read Manifest').output.firstRow.exportConfig.resourceId), '/providers/microsoft.costmanagement/exports/')[0]",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set Date",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Read Manifest",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "date",
+					"value": {
+						"value": "@replace(substring(activity('Read Manifest').output.firstRow.runInfo.startDate, 0, 7), '-', '')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Failed to Read Manifest",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "Set Date",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "Set Dataset Type",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "Set Scope",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "Read Manifest",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "Set Dataset Version",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "Set Schema File",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": {
+						"value": "@concat('Failed to read the manifest file for this export run. Manifest path: ', pipeline().parameters.folderPath)",
+						"type": "Expression"
+					},
+					"errorCode": "ManifestReadFailed"
+				}
+			},
+			{
+				"name": "Check Schema",
+				"type": "GetMetadata",
+				"dependsOn": [
+					{
+						"activity": "Set Scope",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set Date",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Set Schema File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "config",
+						"type": "DatasetReference",
+						"parameters": {
+							"fileName": {
+								"value": "@variables('schemaFile')",
+								"type": "Expression"
+							},
+							"folderPath": "config/schemas"
+						}
+					},
+					"fieldList": [
+						"exists"
+					],
+					"storeSettings": {
+						"type": "AzureBlobFSReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "JsonReadSettings"
+					}
+				}
+			},
+			{
+				"name": "Schema Not Found",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "Check Schema",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": {
+						"value": "@concat('The ', variables('schemaFile'), ' schema mapping file was not found. Please confirm version ', variables('datasetVersion'), ' of the ', variables('datasetType'), ' dataset is supported by this version of FinOps hubs. You may need to upgrade to a newer release. To add support for another dataset, you can create a custom mapping file.')",
+						"type": "Expression"
+					},
+					"errorCode": "SchemaNotFound"
+				}
+			},
+			{
+				"name": "For Each Blob",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Check Schema",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Read Manifest').output.firstRow.blobs",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"activities": [
+						{
+							"name": "Execute",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "msexports_ETL_ingestion",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"blobPath": {
+										"value": "@item().blobName",
+										"type": "Expression"
+									},
+									"destinationFolder": {
+										"value": "@toLower(replace(concat(variables('scope'),'/',variables('date'),'/',variables('datasetType')),'//','/'))",
+										"type": "Expression"
+									},
+									"schemaFile": {
+										"value": "@variables('schemaFile')",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"folderPath": {
+				"type": "string"
+			},
+			"fileName": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"scope": {
+				"type": "String"
+			},
+			"date": {
+				"type": "String"
+			},
+			"datasetType": {
+				"type": "String"
+			},
+			"datasetVersion": {
+				"type": "String"
+			},
+			"schemaFile": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2024-09-24T12:06:59Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

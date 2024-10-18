@@ -1,0 +1,11 @@
+{
+	"name": "finops-hub-mzmrn7owdh6kg",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureKeyVault",
+		"typeProperties": {
+			"baseUrl": "https://finops-hub-mzmrn7owdh6kg.vault.azure.net/"
+		}
+	}
+}

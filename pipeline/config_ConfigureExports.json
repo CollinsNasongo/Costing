@@ -1,0 +1,299 @@
+{
+	"name": "config_ConfigureExports",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get Config",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.00:05:00",
+					"retry": 2,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "JsonSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "JsonReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "config",
+						"type": "DatasetReference",
+						"parameters": {
+							"fileName": {
+								"value": "@variables('fileName')",
+								"type": "Expression"
+							},
+							"folderPath": {
+								"value": "@variables('folderPath')",
+								"type": "Expression"
+							}
+						}
+					}
+				}
+			},
+			{
+				"name": "ForEach Export Scope",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Remove empty scopes",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Remove empty scopes').output.value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Create or update open month focus export",
+							"type": "WebActivity",
+							"dependsOn": [
+								{
+									"activity": "Set open month focus export name",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.00:05:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "PUT",
+								"url": {
+									"value": "@{variables('resourceManagementUri')}@{item().scope}/providers/Microsoft.CostManagement/exports/@{variables('exportName')}?api-version=2023-07-01-preview",
+									"type": "Expression"
+								},
+								"body": {
+									"value": "{ \"properties\": { \"definition\": { \"dataSet\": { \"configuration\": { \"dataVersion\": \"1.0\", \"filters\": [] }, \"granularity\": \"Daily\" }, \"timeframe\": \"MonthToDate\", \"type\": \"FocusCost\" }, \"deliveryInfo\": { \"destination\": { \"container\": \"msexports\", \"rootFolderPath\": \"@{if(startswith(item().scope, '/'), substring(item().scope, 1, sub(length(item().scope), 1)) ,item().scope)}\", \"type\": \"AzureBlob\", \"resourceId\": \"@{variables('storageAccountId')}\" } }, \"schedule\": { \"recurrence\": \"Daily\", \"recurrencePeriod\": { \"from\": \"2024-01-01T00:00:00.000Z\", \"to\": \"2050-02-01T00:00:00.000Z\" }, \"status\": \"Inactive\" }, \"format\": \"Csv\", \"partitionData\": true, \"dataOverwriteBehavior\": \"CreateNewReport\", \"compressionMode\": \"None\" }, \"id\": \"@{variables('resourceManagementUri')}@{item().scope}/providers/Microsoft.CostManagement/exports/@{variables('exportName')}\", \"name\": \"@{variables('exportName')}\", \"type\": \"Microsoft.CostManagement/reports\", \"identity\": { \"type\": \"systemAssigned\" }, \"location\": \"global\" }",
+									"type": "Expression"
+								},
+								"authentication": {
+									"type": "MSI",
+									"resource": {
+										"value": "@variables('ResourceManagementUri')",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Set open month focus export name",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "exportName",
+								"value": {
+									"value": "@toLower(concat(variables('finOpsHub'), '-daily-costdetails'))",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Create or update closed month focus export",
+							"type": "WebActivity",
+							"dependsOn": [
+								{
+									"activity": "Set closed month focus export name",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.00:05:00",
+								"retry": 2,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "PUT",
+								"url": {
+									"value": "@{variables('ResourceManagementUri')}@{item().scope}/providers/Microsoft.CostManagement/exports/@{variables('exportName')}?api-version=2023-07-01-preview",
+									"type": "Expression"
+								},
+								"body": {
+									"value": "{ \"properties\": { \"definition\": { \"dataSet\": { \"configuration\": { \"dataVersion\": \"1.0\", \"filters\": [] }, \"granularity\": \"Daily\" }, \"timeframe\": \"TheLastMonth\", \"type\": \"FocusCost\" }, \"deliveryInfo\": { \"destination\": { \"container\": \"msexports\", \"rootFolderPath\": \"@{if(startswith(item().scope, '/'), substring(item().scope, 1, sub(length(item().scope), 1)) ,item().scope)}\", \"type\": \"AzureBlob\", \"resourceId\": \"@{variables('storageAccountId')}\" } }, \"schedule\": { \"recurrence\": \"Monthly\", \"recurrencePeriod\": { \"from\": \"2024-01-01T00:00:00.000Z\", \"to\": \"2050-02-01T00:00:00.000Z\" }, \"status\": \"Inactive\" }, \"format\": \"Csv\", \"partitionData\": true, \"dataOverwriteBehavior\": \"CreateNewReport\", \"compressionMode\": \"None\" }, \"id\": \"@{variables('resourceManagementUri')}@{item().scope}/providers/Microsoft.CostManagement/exports/@{variables('exportName')}\", \"name\": \"@{variables('exportName')}\", \"type\": \"Microsoft.CostManagement/reports\", \"identity\": { \"type\": \"systemAssigned\" }, \"location\": \"global\" }",
+									"type": "Expression"
+								},
+								"authentication": {
+									"type": "MSI",
+									"resource": {
+										"value": "@variables('ResourceManagementUri')",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "Set closed month focus export name",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Create or update open month focus export",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "exportName",
+								"value": {
+									"value": "@toLower(concat(variables('finOpsHub'), '-monthly-costdetails'))",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Save scopes as array",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Save scopes",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "scopes",
+					"value": {
+						"value": "@array(activity('Get Config').output.firstRow.scopes)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Save scopes",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Get Config",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "scopes",
+					"value": {
+						"value": "@activity('Get Config').output.firstRow.scopes",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Remove empty scopes",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "Save scopes as array",
+						"dependencyConditions": [
+							"Succeeded",
+							"Skipped"
+						]
+					},
+					{
+						"activity": "Save scopes",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@variables('scopes')",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@greater(length(item().scope), 0)",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"concurrency": 1,
+		"variables": {
+			"scopes": {
+				"type": "Array"
+			},
+			"exportName": {
+				"type": "String"
+			},
+			"exportScope": {
+				"type": "String"
+			},
+			"storageAccountId": {
+				"type": "String",
+				"defaultValue": "/subscriptions/0c37ee91-9f72-4ca8-b50d-e2a5e86be377/resourceGroups/nasongo-finops-dev/providers/Microsoft.Storage/storageAccounts/finopshubmzmrn7owdh6kg"
+			},
+			"finOpsHub": {
+				"type": "String",
+				"defaultValue": "finops-hub"
+			},
+			"resourceManagementUri": {
+				"type": "String",
+				"defaultValue": "https://management.azure.com/"
+			},
+			"fileName": {
+				"type": "String",
+				"defaultValue": "settings.json"
+			},
+			"folderPath": {
+				"type": "String",
+				"defaultValue": "config"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2024-09-24T12:06:40Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

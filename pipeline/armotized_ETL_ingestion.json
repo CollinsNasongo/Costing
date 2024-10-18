@@ -1,0 +1,316 @@
+{
+	"name": "armotized_ETL_ingestion",
+	"properties": {
+		"activities": [
+			{
+				"name": "Set Destination File Name",
+				"description": "",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "destinationFile",
+					"value": {
+						"value": "@replace(last(array(split(pipeline().parameters.blobPath, '/'))), '.csv', '.parquet')\n\n\n\n",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Load Schema Mappings",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "JsonSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "JsonReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "config",
+						"type": "DatasetReference",
+						"parameters": {
+							"fileName": {
+								"value": "@toLower(pipeline().parameters.schemaFile)",
+								"type": "Expression"
+							},
+							"folderPath": "config/schemas"
+						}
+					}
+				}
+			},
+			{
+				"name": "Failed to Load Schema",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "Load Schema Mappings",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": {
+						"value": "@concat('Unable to load the ', pipeline().parameters.schemaFile, ' schema file. Please confirm the schema and version are supported for FinOps hubs ingestion. Unsupported files will remain in the msexports container.')",
+						"type": "Expression"
+					},
+					"errorCode": "SchemaLoadFailed"
+				}
+			},
+			{
+				"name": "Delete Target",
+				"type": "Delete",
+				"dependsOn": [
+					{
+						"activity": "Set Destination File Name",
+						"dependencyConditions": [
+							"Completed"
+						]
+					},
+					{
+						"activity": "Load Schema Mappings",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "ingestion",
+						"type": "DatasetReference",
+						"parameters": {
+							"blobPath": {
+								"value": "@concat(pipeline().parameters.destinationFolder, '/', variables('destinationFile'))",
+								"type": "Expression"
+							}
+						}
+					},
+					"enableLogging": false,
+					"storeSettings": {
+						"type": "AzureBlobFSReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					}
+				}
+			},
+			{
+				"name": "Convert CSV",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Delete Target",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.00:05:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"additionalColumns": {
+							"type": "Expression",
+							"value": "@activity('Load Schema Mappings').output.firstRow.additionalColumns"
+						},
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings",
+							"fileExtension": ".parquet"
+						}
+					},
+					"enableStaging": false,
+					"parallelCopies": 1,
+					"validateDataConsistency": false,
+					"translator": {
+						"value": "@activity('Load Schema Mappings').output.firstRow.translator",
+						"type": "Expression"
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "msexports",
+						"type": "DatasetReference",
+						"parameters": {
+							"blobPath": {
+								"value": "@pipeline().parameters.blobPath",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ingestion",
+						"type": "DatasetReference",
+						"parameters": {
+							"blobPath": {
+								"value": "@concat(pipeline().parameters.destinationFolder, '/', variables('destinationFile'))",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "Read Hub Config",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Convert CSV",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "JsonSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": false,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "JsonReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "config",
+						"type": "DatasetReference",
+						"parameters": {
+							"fileName": "settings.json",
+							"folderPath": "config"
+						}
+					}
+				}
+			},
+			{
+				"name": "If Retaining Exports",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Read Hub Config",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(coalesce(activity('Read Hub Config').output.firstRow.retention.msexports.days, 0), 0)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Delete CSV",
+							"type": "Delete",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "msexports",
+									"type": "DatasetReference",
+									"parameters": {
+										"blobPath": {
+											"value": "@pipeline().parameters.blobPath",
+											"type": "Expression"
+										}
+									}
+								},
+								"enableLogging": false,
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"blobPath": {
+				"type": "String"
+			},
+			"destinationFolder": {
+				"type": "string"
+			},
+			"schemaFile": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"destinationFile": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2024-10-17T19:01:45Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}
