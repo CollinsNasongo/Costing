@@ -1,0 +1,29 @@
+{
+	"name": "amortizedexports",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "finopshubmzmrn7owdh6kg",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"fileName": {
+				"type": "string",
+				"defaultValue": "manifest.json"
+			},
+			"folderPath": {
+				"type": "string",
+				"defaultValue": "amortizedmsexports"
+			}
+		},
+		"annotations": [],
+		"type": "Json",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "@{dataset().folderPath}",
+				"folderPath": "@{dataset().folderPath}"
+			}
+		},
+		"schema": {}
+	}
+}
