@@ -1,0 +1,25 @@
+{
+	"name": "amortizedexports",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "finopshubmzmrn7owdh6kg",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"blobPath": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "@{dataset().blobPath}",
+				"fileSystem": "amortizedmsexports"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	}
+}
