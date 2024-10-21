@@ -339,7 +339,7 @@
 							"userProperties": [],
 							"typeProperties": {
 								"pipeline": {
-									"referenceName": "msexports_ETL_ingestion",
+									"referenceName": "armotized_ETL_ingestion",
 									"type": "PipelineReference"
 								},
 								"waitOnCompletion": true,
