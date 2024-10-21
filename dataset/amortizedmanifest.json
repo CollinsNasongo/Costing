@@ -12,7 +12,7 @@
 			},
 			"folderPath": {
 				"type": "String",
-				"defaultValue": "msexports"
+				"defaultValue": "amortizedmsexports"
 			}
 		},
 		"annotations": [],
